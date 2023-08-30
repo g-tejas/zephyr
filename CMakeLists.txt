@@ -1,46 +1,23 @@
-cmake_minimum_required(VERSION 3.22)
-project(zephyr
-    LANGUAGES CXX
-    DESCRIPTION "Hyper-fast io_uring backed event loop"
-)
+cmake_minimum_required(VERSION 3.16)
+project(zephyr 
+	LANGUAGES CXX
+	DESCRIPTION "Blazingly fast async IO event loop framework")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG -Og -g")
-set(CMAKE_CXX_FLAGS_RELEASE "-DRELEASE -O3 -g")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(BUILD_TESTS "Build zephyr tests" ON)
-option(BUILD_EXAMPLES "Build zephyr examples" ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines -Wall -O2 -D_GNU_SOURCE")
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/
+)
 
-include(build_helpers)
+add_library(zephyr SHARED src/*.cc)
+target_link_libraries(zephyr PRIVATE uring)
 
-add_library(${PROJECT_NAME} STATIC src/event_loop.cpp)
-
-target_compile_options(${PROJECT_NAME} PUBLIC
-    -fcoroutines
-    -pthread
-    -Wall
-    -Wextra
-    -g)
-
-target_include_directories(${PROJECT_NAME} PUBLIC include)
-
-#enable_testing()
-#
-if(BUILD_TESTS)
-    message(STATUS "Compiling tests")
-
-    # add_zephyr_test()
-endif()
-
-if(BUILD_EXAMPLES)
-    message(STATUS "Compiling examples")
-
-    # add_zephyr_example(echo_server)
-    # add_zephyr_example(logging_echo_server)
-
-endif()
-
-add_subdirectory(benchmark)
-target_link_libraries(${PROJECT_NAME} uring)
+file(GLOB EXAMPLE_SRCS examples/*.cc)
+foreach(EXAMPLE_SRC ${EXAMPLE_SRCS})
+    get_filename_component(EXAMPLE_NAME ${EXAMPLE_SRC} NAME_WE)
+    add_executable(${EXAMPLE_NAME} ${EXAMPLE_SRC})
+    target_link_libraries(${EXAMPLE_NAME} PRIVATE uring zephyr)
+endforeach()
