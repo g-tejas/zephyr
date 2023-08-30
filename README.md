@@ -16,18 +16,40 @@ Key features:
 `zephyr` applications center around an event loop which drives asynchronous logic:
 
 ```cpp
-ze::event_loop loop;
+Task<int> co_echo(std::shared_ptr<io_uring>& handle) {
+  void* buf;
+  TcpListener listener = TcpListener();
+  TcpStream stream_ = TcpStream();
 
-auto xdp = ze::af_xdp_socket("eth0");
-xdp.attach_bpf("filter.o");
+  listener.bind_socket("127.0.0.1", htons(3344));
+  
+  listener.listen_socket(1024);
 
-while (true) {
-    auto [pkt, meta] = co_await xdp.recv();
-    
-    // process packet
-    
-    co_await xdp.send(pkt);
+  co_await listener.async_accept(handle, &stream_);
+  
+  if(posix_memalign(&buf, 1024, 1024))
+    co_return 1;
+
+  while(1) {
+    int n = co_await stream_.async_recv(handle, buf, 1024);
+
+    if (n == 0) break;
+
+    co_await stream_.async_send(handle, buf, n);
+  }
+
+  co_return 0;
 }
+```
+
+## Build
+```shell
+git clone https://github.com/g-tejas/zephyr
+cd zephyr
+git submodule update --init
+
+make # build zephyr.so
+make example # build examples
 ```
 
 The AF_XDP socket and BPF integration allows building high performance network functions like load balancers, firewalls, NATs etc without kernel involvement.
